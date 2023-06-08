@@ -1,0 +1,57 @@
+version: "3.7"
+services:
+
+  db:
+    image: postgres:15
+    ports:
+      - ${POSTGRES_PORT}:${POSTGRES_PORT}
+    env_file:
+      .env
+
+  redis:
+    image: redis:7
+    container_name: "redis2"
+    env_file:
+      .env
+
+  flower:
+    image: mher/flower
+    environment:
+      - CELERY_BROKER_URL=redis://${REDIS_HOST}:${REDIS_PORT}/0
+      - FLOWER_PORT=${FLOWER_PORT}
+    ports:
+      - ${FLOWER_PORT}:${FLOWER_PORT}
+
+  app:
+    container_name: "app2"
+    image: app
+    build: ./src
+    ports:
+      - ${API_PORT}:${API_PORT}
+    command: uvicorn main:app --host 0.0.0.0 --port ${API_PORT} --reload
+    env_file:
+      .env
+    volumes:
+      - ./accounts:/accounts:rw
+
+  alembic:
+    container_name: "alembic2"
+    image: app
+    build: ./src
+    environment:
+      - ALEMBIC_INI=alembic.ini
+    depends_on:
+      - db
+    command: alembic upgrade head
+    env_file:
+      .env
+
+  celery:
+    container_name: "celery2"
+    image: app
+    command: celery -A celery_tasks worker --loglevel=${LOG_LEVEL} --purge
+    build: ./src
+    env_file:
+      .env
+    volumes:
+      - ./accounts:/accounts:rw
