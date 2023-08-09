@@ -91,3 +91,36 @@ class ParsingResult(Base):
 
     def __repr__(self):
         return f"<ParsingResult {self.status=} {self.result=}>"
+
+
+
+class ChannelType(str, enum.Enum):
+    ul = "ультра левый"
+    l = "левый"
+    n =  "нейтральняый"
+    r = "правый"
+    ur= "ультра правый"
+
+class Channel(Base):
+    channel_id: Mapped[str] = mapped_column()
+    type: Mapped[ChannelType] = mapped_column()
+
+class Post(Base):
+    __tablename__ = "Posts"
+    post_id: Mapped[int] = mapped_column(primary_key=True)
+    channel_id: Mapped[str] = mapped_column()
+    url: Mapped[str] = mapped_column()
+    text: Mapped[str] = mapped_column()
+    media: Mapped[bytes] = mapped_column()
+    reactions: Mapped[str] = mapped_column()
+    time: Mapped[datetime.datetime] = mapped_column()
+
+
+class Comment(Base):
+    __tablename__ = "Comments"
+    id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)
+    post_id: Mapped[int] = mapped_column()
+    text: Mapped[str] = mapped_column()
+    user_id: Mapped[str] = mapped_column()
+    time: Mapped[datetime.datetime] = mapped_column()
+
