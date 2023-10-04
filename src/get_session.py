@@ -1,12 +1,10 @@
 import asyncio
-
 from telethon import TelegramClient
-
 from config import Config
 
 
 async def main():
-    phone = "89773053992"
+    phone = "6289676645345"
     async with TelegramClient(phone, Config().API_ID, Config().API_HASH) as client:
         await client.connect()
         if not await client.is_user_authorized():

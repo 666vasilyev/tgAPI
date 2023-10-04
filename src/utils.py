@@ -1,5 +1,4 @@
 import inspect
-import math
 from typing import Type
 
 from fastapi import Form
@@ -13,7 +12,6 @@ def explode_link(link: str) -> dict[str, str]:
         "channel_name": channel_name,
         "message_id": message_id
     }
-
 
 def as_form(cls: Type[BaseModel]):
     new_parameters = []
@@ -38,3 +36,20 @@ def as_form(cls: Type[BaseModel]):
     as_form_func.__signature__ = sig  # type: ignore
     setattr(cls, 'as_form', as_form_func)
     return cls
+
+
+def process_reactions(reactions: list[tuple]) -> str:
+    # Инициализируем счетчики положительных и отрицательных реакций
+    positive_reactions_count = 0
+    negative_reactions_count = 0
+
+    for emoji, count in reactions:
+        if emoji in ['👍', '❤️', '🔥', '🎉', '🤩', '😁', '🥰', '👏']:
+            positive_reactions_count += count
+
+        elif emoji in ['👎', '😱', '😢', '💩', '🤮', '🤯', '🤔', '🤬']:
+            negative_reactions_count += count
+
+
+    # Обновляем поле reaction для текущей записи
+    return f"{positive_reactions_count}:{negative_reactions_count}"
