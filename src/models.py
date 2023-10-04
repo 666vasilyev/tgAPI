@@ -1,10 +1,8 @@
 from datetime import datetime
 from typing import Optional, Any
-
+from .utils import as_form
 from pydantic import BaseModel
-
-from db.models import ProxyType, ResultStatus
-from utils import as_form
+from .db.models import ProxyType
 
 
 class DataModel(BaseModel):
@@ -13,7 +11,6 @@ class DataModel(BaseModel):
 
 
 class CollectReqModel(BaseModel):
-    task_id: None | int
     data: list[DataModel]
     limit: int = 100
     asc: bool
@@ -22,6 +19,14 @@ class CollectReqModel(BaseModel):
 class CollectResModel(BaseModel):
     task_id: str
 
+class TaskGetReqModel(BaseModel):
+    task_id: str
+    task_status: str
+    task_result: str | None
+
+
+class AllTasksGetReqModel(BaseModel):
+    tasks: list[TaskGetReqModel]
 
 class TaskModel(BaseModel):
     id: str
@@ -42,15 +47,19 @@ class ResultModel(BaseModel):
     date_parsed: datetime
     reactions: Any
     result: Any
-    status: ResultStatus
+    # status: ResultStatus
 
     class Config:
         orm_mode = True
 
+@as_form
+class PutProxyModel(BaseModel):
+    addr: Optional[str] = None
+    port: Optional[int] = None
+    username: Optional[str] = None
+    password: Optional[str] = None
+    proxy_type: Optional[ProxyType] = None
 
-class GetTaskResModel(BaseModel):
-    task_status: Optional[str]
-    results: list[ResultModel]
 
 
 class PostProxyModel(BaseModel):
@@ -71,21 +80,9 @@ class PostProxyModel(BaseModel):
         }
 
 
+
 class PostProxyResModel(BaseModel):
     proxy_id: int
-
-
-@as_form
-class PutProxyModel(BaseModel):
-    addr: Optional[str] = None
-    port: Optional[int] = None
-    username: Optional[str] = None
-    password: Optional[str] = None
-    proxy_type: Optional[ProxyType] = None
-
-
-class PutProxyResModel(PostProxyResModel):
-    pass
 
 
 class SampleAccountModel(BaseModel):

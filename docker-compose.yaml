@@ -1,57 +1,48 @@
 version: "3.7"
 services:
 
-  db:
-    image: postgres:15
-    ports:
-      - ${POSTGRES_PORT}:${POSTGRES_PORT}
-    env_file:
-      .env
-
   redis:
     image: redis:7
-    container_name: "redis2"
+    container_name: "redis"
     env_file:
       .env
 
-  flower:
-    image: mher/flower
-    environment:
-      - CELERY_BROKER_URL=redis://${REDIS_HOST}:${REDIS_PORT}/0
-      - FLOWER_PORT=${FLOWER_PORT}
-    ports:
-      - ${FLOWER_PORT}:${FLOWER_PORT}
-
   app:
-    container_name: "app2"
+    container_name: "app"
     image: app
-    build: ./src
+    build: ./
     ports:
       - ${API_PORT}:${API_PORT}
-    command: uvicorn main:app --host 0.0.0.0 --port ${API_PORT} --reload
+    command: uvicorn src.main:app --host 0.0.0.0 --port ${API_PORT} --reload
     env_file:
       .env
     volumes:
       - ./accounts:/accounts:rw
+      - ./database.db:/database.db:rw   # Добавление тома для SQLite базы данных
+      - ./media:/media:rw               # Добавление тома для /media папки
+      - ./output.xlsx:/output.xlsx:rw
 
   alembic:
-    container_name: "alembic2"
+    container_name: "alembic"
     image: app
-    build: ./src
+    build: ./
     environment:
       - ALEMBIC_INI=alembic.ini
     depends_on:
-      - db
+      - app
     command: alembic upgrade head
     env_file:
       .env
 
   celery:
-    container_name: "celery2"
+    container_name: "celery"
     image: app
-    command: celery -A celery_tasks worker --loglevel=${LOG_LEVEL} --purge
-    build: ./src
+    command: celery -A src.celery_tasks worker --loglevel=${LOG_LEVEL} --purge
+    build: ./
     env_file:
       .env
     volumes:
       - ./accounts:/accounts:rw
+      - ./database.db:/database.db:rw   # Добавление тома для SQLite базы данных
+      - ./media:/media:rw               # Добавление тома для /media папки
+      - ./output.xlsx:/output.xlsx:rw
