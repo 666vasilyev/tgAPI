@@ -1,24 +1,30 @@
-from pydantic import BaseSettings
+from pydantic_settings import BaseSettings
 from pathlib import Path
-
 
 class Config(BaseSettings):
 
-    REDIS_HOST: str = "localhost"
-    REDIS_PORT: int = 6379
+    REDIS_HOST: str
+    REDIS_PORT: int 
 
-    SESSIONS_DIR: Path = "accounts"
-    MEDIA_DIR: str = "media/"
+    SESSIONS_DIR: Path
+    MEDIA_DIR: str
 
-    API_ID: int = 1506593
-    API_HASH: str = "74b07d38a04337651c59ca46bb3e9ec6"
+    API_ID: int
+    API_HASH: str 
 
-    LOG_LEVEL: str = "INFO"
+    LOG_LEVEL: str 
 
-    SYNC_DB_URL: str = "sqlite:///database.db"
+    SYNC_DB_URL: str
 
+    @property
     def broker(self):
         return f"redis://{self.REDIS_HOST}:{self.REDIS_PORT}/0"
-
+    
+    @property
     def backend(self):
         return f"redis://{self.REDIS_HOST}:{self.REDIS_PORT}/1"
+    
+    class Config:
+        env_file = ".env"
+
+config = Config()
