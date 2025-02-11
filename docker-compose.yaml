@@ -18,9 +18,9 @@ services:
       .env
     volumes:
       - ./accounts:/accounts:rw
-      - ./database.db:/database.db:rw   # Добавление тома для SQLite базы данных
+      - ./database:/database:rw   # Добавление тома для SQLite базы данных
       - ./media:/media:rw               # Добавление тома для /media папки
-      - ./output.xlsx:/output.xlsx:rw
+      - ./output:/output:rw
 
   alembic:
     container_name: "alembic"
@@ -43,6 +43,6 @@ services:
       .env
     volumes:
       - ./accounts:/accounts:rw
-      - ./database.db:/database.db:rw   # Добавление тома для SQLite базы данных
+      - ./database:/database:rw   # Добавление тома для SQLite базы данных
       - ./media:/media:rw               # Добавление тома для /media папки
-      - ./output.xlsx:/output.xlsx:rw
+      - ./output:/output:rw
