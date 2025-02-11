@@ -9,4 +9,3 @@ def check_active_proxy(proxy_model: PostProxyModel) -> tuple[int, str]:
     ) as r:
         return r.status_code, r.text
 
-#  scp -r /Users/racing/PycharmProjects/tgapi3/tgAPI2.0/src/main.py comments@85.234.107.149:/home/comments/projects/tgAPI2.0/src

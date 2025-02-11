@@ -3,7 +3,7 @@ import openpyxl
 from .db.connection import Connection
 from .db.sync_crud import get_channel_type_by_id, get_posts, get_comments_by_post_id
 
-file_name = 'output.xlsx'
+file_name = 'output/output.xlsx'
 
 def create_or_load_workbook():
     try:
