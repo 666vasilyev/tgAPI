@@ -1,6 +1,6 @@
 import asyncio
 from telethon import TelegramClient
-from config import Config
+from core.config import Config
 
 
 async def main():

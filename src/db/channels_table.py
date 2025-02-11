@@ -30,5 +30,3 @@ channels_table = [
     # ("https://t.me/nevzorovtv/10538", ChannelType.ul),
     # ("https://t.me/muzhdabaev/3890", ChannelType.ul),
 ]
-
-# scp -r comments@85.234.107.149:/home/comments/projects/tgAPI2.0/database.db /Users/racing/PycharmProjects/tgapi3/tgAPI2.0/src

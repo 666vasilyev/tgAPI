@@ -1,6 +1,6 @@
 import requests
 
-from .models import PostProxyModel
+from ..schemas.proxy import PostProxyModel
 
 
 def check_active_proxy(proxy_model: PostProxyModel) -> tuple[int, str]:

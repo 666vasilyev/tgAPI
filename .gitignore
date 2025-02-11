@@ -5,6 +5,7 @@ __pycache__/
 # Dependency directories
 venv/
 env/
+postgres_data/
 
 # IDE directories
 .vscode/

@@ -13,12 +13,11 @@ services:
     build: ./
     ports:
       - ${API_PORT}:${API_PORT}
-    command: uvicorn src.main:app --host 0.0.0.0 --port ${API_PORT} --reload
+    command: uvicorn main:app --host 0.0.0.0 --port ${API_PORT} 
     env_file:
       .env
     volumes:
       - ./accounts:/accounts:rw
-      - ./database:/database:rw   # Добавление тома для SQLite базы данных
       - ./media:/media:rw               # Добавление тома для /media папки
       - ./output:/output:rw
 
@@ -37,12 +36,20 @@ services:
   celery:
     container_name: "celery"
     image: app
-    command: celery -A src.celery_tasks worker --loglevel=${LOG_LEVEL} --purge
+    command: celery -A src.core.celery_tasks worker --loglevel=${LOG_LEVEL} --purge
     build: ./
     env_file:
       .env
     volumes:
       - ./accounts:/accounts:rw
-      - ./database:/database:rw   # Добавление тома для SQLite базы данных
       - ./media:/media:rw               # Добавление тома для /media папки
       - ./output:/output:rw
+
+  db:
+    image: postgres
+    volumes:
+      - ./postgres_data:/var/lib/postgresql/data
+    env_file:
+     .env
+    ports:
+      - '5433:5432'

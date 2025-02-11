@@ -5,7 +5,7 @@ from sqlalchemy import pool
 
 from alembic import context
 from src.db.models import Base
-from src.config import Config
+from src.core.config import Config
 
 
 # this is the Alembic Config object, which provides
@@ -28,7 +28,7 @@ target_metadata = Base.metadata
 # my_important_option = config.get_main_option("my_important_option")
 # ... etc.
 
-url = config.set_main_option("sqlalchemy.url", Config().SYNC_DB_URL)
+url = config.set_main_option("sqlalchemy.url", Config().DATABASE_URL)
 
 # url = config.set_main_option("sqlalchemy.url", "postgresql+psycopg://postgres:123@localhost:5432/map")
 

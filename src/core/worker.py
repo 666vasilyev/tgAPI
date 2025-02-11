@@ -2,9 +2,9 @@ import logging
 from telethon import TelegramClient
 from telethon.tl.types import User
 
-from .utils import process_reactions
+from ..utils.utils import process_reactions
 from .config import Config
-from .db.sync_crud import (
+from ..db.sync_crud import (
     create_post,
     create_comment, 
     get_account, 
@@ -12,8 +12,8 @@ from .db.sync_crud import (
     increment_account_requests, 
     set_banned
     )
-from .models import CollectReqModel
-from .db.connection import Connection
+from ..schemas.proxy import CollectReqModel
+from ..db.connection import Connection
 from sqlalchemy.orm import Session
 
 

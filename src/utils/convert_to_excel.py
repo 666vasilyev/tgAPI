@@ -1,7 +1,7 @@
 import logging
 import openpyxl
-from .db.connection import Connection
-from .db.sync_crud import get_channel_type_by_id, get_posts, get_comments_by_post_id
+from ..db.connection import Connection
+from ..db.sync_crud import get_channel_type_by_id, get_posts, get_comments_by_post_id
 
 file_name = 'output/output.xlsx'
 
