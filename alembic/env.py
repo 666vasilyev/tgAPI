@@ -30,7 +30,7 @@ target_metadata = Base.metadata
 
 url = config.set_main_option("sqlalchemy.url", Config().DATABASE_URL)
 
-# url = config.set_main_option("sqlalchemy.url", "postgresql+psycopg://postgres:123@localhost:5432/map")
+# url = config.set_main_option("sqlalchemy.url", "postgresql+psycopg://postgres:123@localhost:5432/tg_meta")
 
 
 

@@ -12,4 +12,4 @@ class ResultModel(BaseModel):
     # status: ResultStatus
 
     class Config:
-        orm_mode = True
+        from_attributes = True

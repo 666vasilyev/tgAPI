@@ -1,188 +1,113 @@
 import logging
 from telethon import TelegramClient
 from telethon.tl.types import User
-
-from ..utils.utils import process_reactions
-from .config import Config
-from ..db.sync_crud import (
-    create_post,
-    create_comment, 
-    get_account, 
-    get_proxy_by_id,
-    increment_account_requests, 
-    set_banned
-    )
-from ..schemas.proxy import CollectReqModel
-from ..db.connection import Connection
 from sqlalchemy.orm import Session
 
+from src.utils.utils import process_reactions
+from src.core.config import Config
+from src.repositories.channel import ChannelRepository
+from src.repositories.post import PostRepository
+from src.repositories.comment import CommentRepository
+from src.repositories.account import AccountRepository
+from src.repositories.proxy import ProxyRepository
+from src.schemas.task import CollectReqModel
+from src.dependencies import get_db
 
 logger = logging.getLogger(__name__)
 
-# TODO: тестить
-async def get_client(session: Session) -> TelegramClient | None:
 
-    # Получить аккаунт по ID
-    account = get_account(session)
-    increment_account_requests(session, account)
-    
-    # Получить прокси по ID
-    proxy = get_proxy_by_id(session, account.proxy_id)
-    logging.info(proxy)
-    # Настройки API
-    api_id = Config().API_ID
-    api_hash = Config().API_HASH
-    session_file = f'{Config().SESSIONS_DIR}/{account.login}.session'
+class Worker:
+    def __init__(self, session: Session):
+        self.session = session
+        self.account_repo = AccountRepository(session)
+        self.proxy_repo = ProxyRepository(session)
+        self.post_repo = PostRepository(session)
+        self.comment_repo = CommentRepository(session)
+        self.api_id = Config().API_ID
+        self.api_hash = Config().API_HASH
 
-    # Создать TelegramClient
-    # client = TelegramClient(session_file, api_id, api_hash, proxy=proxy.as_dict())
-    client = TelegramClient(session_file, api_id, api_hash)
-    logging.info('client is created')
-    try:
-        # Попробовать установить соединение
-        logging.info('before connect')
-        await client.connect()
-        logging.info('after connect')
-
-        # Проверить, заблокирован ли аккаунт
-        me = await client.get_me()
-        if isinstance(me, User):
-            return client  # Вернуть клиента, если он работоспособен
-        else:
-            set_banned(session, account)
-            return None
-    except Exception as e:
-        logging.error(f'An error occurred while connecting to Telegram: {e}')
-        return None
+    async def get_client(self) -> TelegramClient | None:
+        account = self.account_repo.get_account()
+        self.account_repo.increment_account_requests(account)
+        # proxy = self.proxy_repo.get_proxy_by_id(account.proxy_id)
         
-
-async def get_post_info(session: Session, client: TelegramClient, channel_name: str, message_id: int):
-    
-    message = await client.get_messages(await client.get_entity(channel_name), 
-                                ids=message_id)
-    
-    # забирание реакций с поста через API + преобразование в JSON формат для бд
-    data = []
-    if message and message.reactions:
-        data = message.reactions.results 
-    reactions = [(item.reaction.emoticon, item.count) for item in data]
-    reactions_pairs = process_reactions(reactions=reactions)
-    # сбор медиа с поста
-    logging.info('Media started downoloading')
-    # await message.download_media(f'{Config().MEDIA_DIR}/{message_id}')
-    logging.info('Media finished downoloading')
-    # запись в базу данных
-    create_post(
-        session,
-        message_id,
-        int(message.peer_id.channel_id),
-        f't.me/{channel_name}/{message_id}',
-        message.text,
-        f'{Config().MEDIA_DIR}{message_id}',
-        reactions_pairs,
-        message.date
-    )
-
-
-async def get_comments_info(session: Session, 
-                            client: TelegramClient,
-                            message_id: str, 
-                            channel_name: str,
-                            limit: int,
-                            reverse: bool
-                            ):
-    
-    async for comment in client.iter_messages(
-                            entity=await client.get_entity(channel_name),
-                            reply_to=int(message_id),
-                            limit=limit,
-                            reverse=reverse,
-                            wait_time=1,
-        ):
+        session_file = f'{Config().SESSIONS_DIR}/{account.login}.session'
+        
+        client = TelegramClient(session_file, self.api_id, self.api_hash)
         try:
-            create_comment(
-                session,
-                comment.id, 
-                message_id, 
-                comment.text, 
-                comment.from_id.user_id, 
-                comment.date
-            )
-        except AttributeError:
-            create_comment(
-                session,
-                comment.id, 
-                message_id, 
-                comment.text, 
-                f'channel_id:{comment.peer_id.channel_id}', 
-                comment.date
-            )
+            await client.connect()
+            me = await client.get_me()
+            if isinstance(me, User):
+                return client
+            else:
+                self.account_repo.set_banned(account)
+                return None
+        except Exception as e:
+            logger.error(f'Error connecting to Telegram: {e}')
+            return None
 
-# TODO: в случае неимения аккаунта обработать эту ошибку по человечески
-async def get_comments(tasks: CollectReqModel):
-    limit = tasks.limit
-    reverse = tasks.asc
-    for task in tasks.data:
-        channel_name, message_id = task.url.split('/')[-2:]
-        logging.info(task.url)
-        logging.info(task.url.split('/')[-2:])
-        logging.info(task.url.split('/')[-1:])
+    async def get_post_info(self, client: TelegramClient, channel_name: str, message_id: int):
+        message = await client.get_messages(await client.get_entity(channel_name), ids=message_id)
+        data = message.reactions.results if message and message.reactions else []
+        reactions = [(item.reaction.emoticon, item.count) for item in data]
+        reactions_pairs = process_reactions(reactions)
+        
+        self.post_repo.create_post(
+            message_id,
+            int(message.peer_id.channel_id),
+            f't.me/{channel_name}/{message_id}',
+            message.text,
+            f'{Config().MEDIA_DIR}{message_id}',
+            reactions_pairs,
+            message.date
+        )
 
-        # открываем соединение с клиентом, также работаем с аккаунтом
-        async with Connection.getConnection() as session:
+    async def get_comments_info(self, client: TelegramClient, message_id: str, channel_name: str, limit: int, reverse: bool):
+        async for comment in client.iter_messages(
+                entity=await client.get_entity(channel_name),
+                reply_to=int(message_id),
+                limit=limit,
+                reverse=reverse,
+                wait_time=1):
+            try:
+                self.comment_repo.create_comment(
+                    comment.id, message_id, comment.text, comment.from_id.user_id, comment.date)
+            except AttributeError:
+                self.comment_repo.create_comment(
+                    comment.id, message_id, comment.text, f'channel_id:{comment.peer_id.channel_id}', comment.date)
 
-            # открываем сессию работы с базой данных
-            logging.info('Session is opened')
-
-            # проверим работоспособность клиента
-            client = await get_client(session=session)
-            if client is not None:
+    async def get_comments(self, tasks: CollectReqModel):
+        limit = tasks.limit
+        reverse = tasks.asc
+        
+        for task in tasks.data:
+            channel_name, message_id = task.url.split('/')[-2:]
+            client = await self.get_client()
+            
+            if client:
                 try:
                     await client.connect()
-                    logging.info('Client is opened')
-                except Exception as e:
-                    logging.error(str(e))
-                    logging.info('account status changed to banned')
-                try:
-                    # собираем информацию с поста
-                    await get_post_info(
-                        session=session,
-                        client=client,
-                        channel_name=channel_name, 
-                        message_id=int(message_id)
-                        )
-                    
-                    # собираем информацию о комментариях
-                    await get_comments_info(
-                        session=session,
-                        client=client,
-                        message_id=message_id,
-                        channel_name=channel_name,
-                        limit=limit,
-                        reverse=reverse
-                    )
+                    await self.get_post_info(client, channel_name, int(message_id))
+                    await self.get_comments_info(client, message_id, channel_name, limit, reverse)
                     await client.disconnect()
-                    logging.info('Client is closed')
                 except Exception as e:
-                    logging.error(str(e))
+                    logger.error(str(e))
                     await client.disconnect()
             else:
-                logging.info('client is None')
+                logger.info('Client is None')
 
-
-# res = await client.get_messages(url, limit=1) очень медленно
-async def get_last_post_id(session: Session, url: str) -> int | None:
-    try:
-        client = await get_client(session=session)
-        if client is not None:
-            await client.connect()
-            res = await client.get_messages(url, limit=1)
-            await client.disconnect()
-            if res:
-                return int(res[0].id)
-            else:
+    async def get_last_post_id(self, url: str) -> int | None:
+        client = await self.get_client()
+        
+        if client:
+            try:
+                await client.connect()
+                res = await client.get_messages(url, limit=1)
+                await client.disconnect()
+                return int(res[0].id) if res else None
+            except Exception as e:
+                logger.error(str(e))
                 return None
         else:
-            logging.info('client is None')
-    except Exception as e:
-        logging.error(str(e))
+            logger.info('Client is None')
+            return None

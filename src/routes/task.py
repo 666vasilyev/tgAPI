@@ -37,6 +37,6 @@ async def create_task(collect_model: CollectReqModel):
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="Empty data"
         )
 
-    celery_task = celery_get_comments.delay(collect_model.dict())
+    celery_task = celery_get_comments.delay(collect_model.model_dump())
 
     return CollectResModel(task_id=celery_task.id)

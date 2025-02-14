@@ -23,7 +23,7 @@ class PostProxyModel(BaseModel):
     proxy_type: ProxyType
 
     class Config:
-        orm_mode = True
+        from_attributes = True
 
     def get_url(self):
         return {

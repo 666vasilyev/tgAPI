@@ -3,8 +3,8 @@ from typing import Type
 
 from fastapi import Form
 from pydantic import BaseModel
-from pydantic.fields import ModelField
 
+from typing import Any
 
 def explode_link(link: str) -> dict[str, str]:
     channel_name, message_id = link.split('/')[-2:]
@@ -16,15 +16,15 @@ def explode_link(link: str) -> dict[str, str]:
 def as_form(cls: Type[BaseModel]):
     new_parameters = []
 
-    for field_name, model_field in cls.__fields__.items():
-        model_field: ModelField  # type: ignore
-
+    for field_name, model_field in cls.model_fields.items():  # Pydantic 2 заменяет __fields__ на model_fields
+        default = Form(...) if model_field.default is None else Form(model_field.default)
+        
         new_parameters.append(
             inspect.Parameter(
-                model_field.alias,
+                field_name,  # Используем имя поля напрямую
                 inspect.Parameter.POSITIONAL_ONLY,
-                default=Form(...) if model_field.required else Form(model_field.default),
-                annotation=model_field.outer_type_,
+                default=default,
+                annotation=model_field.annotation if model_field.annotation is not None else Any,
             )
         )
 

@@ -10,9 +10,7 @@ from src.schemas.proxy import PutProxyModel
 from src.dependencies import get_account_repository
 from src.repositories.account import AccountRepository
 
-
 router = APIRouter()
-
 
 @router.post("/account")
 async def create_account(

@@ -28,3 +28,4 @@ postgres_data/
 *.db
 celerybeat-schedule.db
 *.session
+*.env

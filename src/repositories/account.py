@@ -2,7 +2,7 @@ import logging
 from sqlalchemy.orm import Session
 from sqlalchemy import select
 from src.db.models import Account, Proxy
-from app.repositories.proxy import ProxyRepository
+from src.repositories.proxy import ProxyRepository
 
 logger = logging.getLogger(__name__)
 
