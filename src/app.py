@@ -9,8 +9,8 @@ from src.routes.task import router as task_router
 def get_app() -> FastAPI:
 
     app = FastAPI(
-        title="Logistics App", 
-        description="An app to manage objects, chains, categories, and products.",
+        title="Telegram Parser App", 
+        description="An app to parse meta from Telegram's channels",
     )
 
     # Include routers
