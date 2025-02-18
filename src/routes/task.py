@@ -6,7 +6,7 @@ from src.schemas.task import TaskGetReqModel, AllTasksGetReqModel, CollectReqMod
 router = APIRouter()
 
 
-@router.get("/task/{task_id}")
+@router.get("/{task_id}")
 async def get_task_by_id(task_id: str):
     task = celery.AsyncResult(task_id)
     task_status = task.status
@@ -16,7 +16,7 @@ async def get_task_by_id(task_id: str):
     )
 
 
-@router.get("/task")
+@router.get("/")
 async def get_tasks():
     keys = redis.keys("celery-task-meta-*")
 
@@ -30,7 +30,7 @@ async def get_tasks():
     return AllTasksGetReqModel(tasks=tasks)
 
 
-@router.post("/task", response_model=CollectResModel)
+@router.post("/", response_model=CollectResModel)
 async def create_task(collect_model: CollectReqModel):
     if len(collect_model.data) <= 0:
         raise HTTPException(

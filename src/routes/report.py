@@ -11,7 +11,7 @@ from src.repositories.comment import CommentRepository
 
 router = APIRouter()
 
-@router.post("/report", status_code=status.HTTP_200_OK)
+@router.post("/", status_code=status.HTTP_200_OK)
 async def generate_excel(
         channel_repo: ChannelRepository = Depends(get_channel_repository),
         post_repo: PostRepository = Depends(get_post_repository),
@@ -28,7 +28,7 @@ async def generate_excel(
     
 
 
-@router.get("/report", status_code=status.HTTP_200_OK)
+@router.get("/", status_code=status.HTTP_200_OK)
 async def get_excel():
     # Укажите путь к файлу "output.xlsx"
     file_path = Path(__file__).resolve().parent / "output.xlsx"

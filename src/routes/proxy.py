@@ -9,7 +9,7 @@ from src.dependencies import get_proxy_repository
 router = APIRouter()
 
 
-@router.get("/proxy")
+@router.get("/")
 async def get_all_proxies(
     proxy_repo: ProxyRepository = Depends(get_proxy_repository)
 ):
@@ -22,7 +22,7 @@ async def get_all_proxies(
         )
 
 
-@router.post("/proxy", description="Proxy types: [https, socks4, socks5]")
+@router.post("/", description="Proxy types: [https, socks4, socks5]")
 async def create_proxy(
     proxy: PostProxyModel,
     proxy_repo: ProxyRepository = Depends(get_proxy_repository)
@@ -48,7 +48,7 @@ async def create_proxy(
         )
 
 
-@router.delete("/proxy/{proxy_id}", status_code=status.HTTP_200_OK)
+@router.delete("/{proxy_id}", status_code=status.HTTP_200_OK)
 async def delete_proxy(
     proxy_id: int,
     proxy_repo: ProxyRepository = Depends(get_proxy_repository)

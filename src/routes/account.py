@@ -3,6 +3,7 @@ import os
 import aiofiles
 
 from fastapi import APIRouter, HTTPException, status, UploadFile, File, Depends, Query
+from typing import Optional
 
 from src.core.config import Config
 from src.schemas.account import SampleAccountModel
@@ -12,9 +13,9 @@ from src.repositories.account import AccountRepository
 
 router = APIRouter()
 
-@router.post("/account")
+@router.post("/")
 async def create_account(
-    proxy_id: int,
+    proxy_id: Optional[int],
     session_file: UploadFile = File(...),
     account_repo: AccountRepository = Depends(get_account_repository)
 ):
@@ -61,7 +62,7 @@ async def create_account(
         )
 
 
-@router.post("/account_with_proxy")
+@router.post("/with_proxy")
 async def create_account_with_proxy(
     proxy: PutProxyModel = Depends(PutProxyModel.as_form),
     session_file: UploadFile = File(...),
@@ -105,7 +106,7 @@ async def create_account_with_proxy(
     )
 
 
-@router.get("/account")
+@router.get("/")
 async def get_accounts(
     active: bool = Query(False),
     account_repo: AccountRepository = Depends(get_account_repository)
@@ -113,7 +114,7 @@ async def get_accounts(
     return account_repo.get_accounts_by_status(active=active)
 
 
-@router.delete("/account/{account_id}", status_code=status.HTTP_200_OK)
+@router.delete("/{account_id}", status_code=status.HTTP_200_OK)
 async def delete_account(
     account_id: int,
     account_repo: AccountRepository = Depends(get_account_repository)
