@@ -1,113 +1,128 @@
 import logging
-from telethon import TelegramClient
-from telethon.tl.types import User
-from sqlalchemy.orm import Session
+import os
+import socks
 
-from src.utils.utils import process_reactions
-from src.core.config import Config
-from src.repositories.channel import ChannelRepository
+from datetime import datetime, timezone
+
+from telethon import TelegramClient
+from telethon.tl.types import Message
+
 from src.repositories.post import PostRepository
-from src.repositories.comment import CommentRepository
-from src.repositories.account import AccountRepository
-from src.repositories.proxy import ProxyRepository
-from src.schemas.task import CollectReqModel
-from src.dependencies import get_db
+from src.core.config import Config
+from src.db.models import Account
 
 logger = logging.getLogger(__name__)
 
 
 class Worker:
-    def __init__(self, session: Session):
-        self.session = session
-        self.account_repo = AccountRepository(session)
-        self.proxy_repo = ProxyRepository(session)
-        self.post_repo = PostRepository(session)
-        self.comment_repo = CommentRepository(session)
-        self.api_id = Config().API_ID
-        self.api_hash = Config().API_HASH
+    def __init__(self, post_repo: PostRepository, account: Account):
+        """
+        Инициализация Worker.
+        
+        :param db: Сессия SQLAlchemy для работы с базой данных.
+        :param api_id: Ваш api_id из my.telegram.org.
+        :param api_hash: Ваш api_hash.
+        :param session_name: Имя файла сессии Telethon.
+        """
+        self.config = Config()
 
-    async def get_client(self) -> TelegramClient | None:
-        account = self.account_repo.get_account()
-        self.account_repo.increment_account_requests(account)
-        # proxy = self.proxy_repo.get_proxy_by_id(account.proxy_id)
+        self.session_name = f'{self.config.SESSIONS_DIR}/{account.login}.session'
+
+        self.proxy = (
+            socks.HTTP, 
+            account.proxy.addr, 
+            account.proxy.port, 
+            True,
+            account.proxy.username, 
+            account.proxy.password
+            )
         
-        session_file = f'{Config().SESSIONS_DIR}/{account.login}.session'
+        self.post_repo = post_repo  # Инициализация репозитория постов
+
+        self.api_id = self.config.API_ID
+        self.api_hash = self.config.API_HASH
+        self.media_dir = self.config.MEDIA_DIR
+
+        self.client = TelegramClient(self.session_name, self.api_id, self.api_hash, proxy=self.proxy)
+
+    async def connect(self):
+        """Подключение к Telegram через Telethon."""
+        await self.client.start()
+        logger.info("Подключение к Telegram успешно.")
+
+    async def disconnect(self):
+        """Отключение от Telegram."""
+        await self.client.disconnect()
+        logger.info("Отключение от Telegram выполнено.")
+
+    async def fetch_channel_posts(self, channel_link: str, limit: int):
+        """
+        Получает сообщения из канала по ссылке и сохраняет их в базу данных через PostRepository.
         
-        client = TelegramClient(session_file, self.api_id, self.api_hash)
+        :param channel_link: Ссылка на Telegram-канал (например, "https://t.me/some_channel").
+        """
         try:
-            await client.connect()
-            me = await client.get_me()
-            if isinstance(me, User):
-                return client
-            else:
-                self.account_repo.set_banned(account)
-                return None
+            channel = await self.client.get_entity(channel_link)
         except Exception as e:
-            logger.error(f'Error connecting to Telegram: {e}')
-            return None
+            logger.error(f"Ошибка получения канала {channel_link}: {e}")
+            return
 
-    async def get_post_info(self, client: TelegramClient, channel_name: str, message_id: int):
-        message = await client.get_messages(await client.get_entity(channel_name), ids=message_id)
-        data = message.reactions.results if message and message.reactions else []
-        reactions = [(item.reaction.emoticon, item.count) for item in data]
-        reactions_pairs = process_reactions(reactions)
-        
-        self.post_repo.create_post(
-            message_id,
-            int(message.peer_id.channel_id),
-            f't.me/{channel_name}/{message_id}',
-            message.text,
-            f'{Config().MEDIA_DIR}{message_id}',
-            reactions_pairs,
-            message.date
-        )
+        logger.info(f"Начало сбора постов из канала: {getattr(channel, 'title', channel.id)}")
 
-    async def get_comments_info(self, client: TelegramClient, message_id: str, channel_name: str, limit: int, reverse: bool):
-        async for comment in client.iter_messages(
-                entity=await client.get_entity(channel_name),
-                reply_to=int(message_id),
-                limit=limit,
-                reverse=reverse,
-                wait_time=1):
-            try:
-                self.comment_repo.create_comment(
-                    comment.id, message_id, comment.text, comment.from_id.user_id, comment.date)
-            except AttributeError:
-                self.comment_repo.create_comment(
-                    comment.id, message_id, comment.text, f'channel_id:{comment.peer_id.channel_id}', comment.date)
+        # Итерация по сообщениям канала
+        async for message in self.client.iter_messages(channel, limit=limit):
+            if not message:
+                continue
 
-    async def get_comments(self, tasks: CollectReqModel):
-        limit = tasks.limit
-        reverse = tasks.asc
-        
-        for task in tasks.data:
-            channel_name, message_id = task.url.split('/')[-2:]
-            client = await self.get_client()
-            
-            if client:
-                try:
-                    await client.connect()
-                    await self.get_post_info(client, channel_name, int(message_id))
-                    await self.get_comments_info(client, message_id, channel_name, limit, reverse)
-                    await client.disconnect()
-                except Exception as e:
-                    logger.error(str(e))
-                    await client.disconnect()
-            else:
-                logger.info('Client is None')
+            await self.process_message(message, channel)
 
-    async def get_last_post_id(self, url: str) -> int | None:
-        client = await self.get_client()
-        
-        if client:
-            try:
-                await client.connect()
-                res = await client.get_messages(url, limit=1)
-                await client.disconnect()
-                return int(res[0].id) if res else None
-            except Exception as e:
-                logger.error(str(e))
-                return None
+    async def process_message(self, message: Message, channel):
+        """
+        Преобразует сообщение Telethon в параметры для создания поста и вызывает метод create_post из PostRepository.
+        """
+        # Формирование URL поста, если у канала есть username
+        if hasattr(channel, "username") and channel.username:
+            url = f"https://t.me/{channel.username}/{message.id}"
         else:
-            logger.info('Client is None')
-            return None
+            url = ""
+
+        text = message.message or ""
+        media = str(message.media) if message.media else ""
+
+        post_date = message.date if message.date else datetime.now(timezone.utc)
+
+
+        # Сохраняем медиа, если оно есть
+        media_file_path = ""
+        if message.media:
+            # Генерируем имя файла на основе channel.id и message.id
+            file_name = f"{channel.id}_{message.id}"
+            file_path = os.path.join(self.media_dir, file_name)
+            try:
+                media_file_path = await self.client.download_media(message, file=file_path)
+                logger.info(f"Медиа сохранено: {media_file_path}")
+            except Exception as e:
+                logger.error(f"Ошибка при скачивании медиа для сообщения {message.id}: {e}")
+                media_file_path = ""
+
+        # Сохранение поста через репозиторий
+        self.post_repo.create_post(
+            post_id=message.id,
+            url=url,
+            text=text,
+            media=media,
+            date=post_date
+        )
+        logger.info(f"Обработан пост с id: {message.id}")
+
+    async def run(self, channel_link: str, limit: int):
+        """
+        Основной метод для запуска сборщика постов.
+        
+        :param channel_link: Ссылка на Telegram-канал.
+        """
+        await self.connect()
+        try:
+            await self.fetch_channel_posts(channel_link, limit)
+        finally:
+            await self.disconnect()

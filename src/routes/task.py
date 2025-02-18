@@ -1,10 +1,9 @@
-from fastapi import APIRouter, HTTPException, status
+from fastapi import APIRouter
 
-from src.core.celery_tasks import celery, redis, celery_get_comments
-from src.schemas.task import TaskGetReqModel, AllTasksGetReqModel, CollectReqModel, CollectResModel
+from src.core.celery_tasks import celery, redis, celery_get_posts
+from src.schemas.task import TaskGetReqModel, AllTasksGetReqModel, CollectResModel
 
 router = APIRouter()
-
 
 @router.get("/{task_id}")
 async def get_task_by_id(task_id: str):
@@ -31,12 +30,14 @@ async def get_tasks():
 
 
 @router.post("/", response_model=CollectResModel)
-async def create_task(collect_model: CollectReqModel):
-    if len(collect_model.data) <= 0:
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="Empty data"
-        )
+async def create_task(
+    channel_link: str,
+    limit: int,
+):
 
-    celery_task = celery_get_comments.delay(collect_model.model_dump())
+    celery_task = celery_get_posts.delay({
+        "channel_link": channel_link,
+        "limit": limit,
+    })
 
     return CollectResModel(task_id=celery_task.id)

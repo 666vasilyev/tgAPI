@@ -8,21 +8,31 @@ from redis import Redis
 from src.core.config import Config
 from src.core.worker import Worker
 from src.dependencies import get_db
-from src.schemas.task import CollectReqModel
+from src.repositories.post import PostRepository
+from src.repositories.account import AccountRepository
+
 
 celery = Celery("celery_task", broker=Config().broker, backend=Config().backend)
 redis = Redis(host=Config().REDIS_HOST, port=Config().REDIS_PORT, db=1)
 
+
+logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
-
 @celery.task
-def celery_get_comments(request: dict):
+def celery_get_posts(params: dict): 
+
+    channel_link = params.get("channel_link")
+    limit = params.get("limit")
 
     with get_db() as session:
-        worker = Worker(session)
+        
+        account_repo = AccountRepository(session)
+        post_repo = PostRepository(session)
 
-    asyncio.run(
-        worker.get_comments(CollectReqModel.model_validate(request)),
-    )
+        account = account_repo.get_account()
+
+        worker = Worker(post_repo, account)
+
+        asyncio.run(worker.run(channel_link=channel_link, limit=limit))
 

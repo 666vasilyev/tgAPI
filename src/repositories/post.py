@@ -1,7 +1,8 @@
 import logging
 from datetime import datetime
-from sqlalchemy.exc import IntegrityError
+from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.orm import Session
+from sqlalchemy.dialects.postgresql import insert
 
 from src.db.models import Post
 
@@ -15,30 +16,30 @@ class PostRepository:
     def create_post(
         self,
         post_id: int,
-        channel_id: str,
         url: str,
         text: str,
         media: str,
-        reactions: str,
         date: datetime
     ) -> None:
         """
         Создает пост.
         """
+        stmt = insert(Post).values(
+            post_id=post_id,
+            url=url,
+            text=text,
+            media=media,
+            time=date
+        ).on_conflict_do_nothing(
+            index_elements=['post_id']
+        )
+        
         try:
-            new_post = Post(
-                post_id=post_id,
-                channel_id=channel_id,
-                url=url,
-                text=text,
-                media=media,
-                reactions=reactions,
-                time=date
-            )
-            self.db.add(new_post)
+            self.db.execute(stmt)
             self.db.commit()
-        except IntegrityError:
-            logger.info('Post already exists')
+        except SQLAlchemyError as e:
+            self.db.rollback()
+            logger.error("Ошибка при создании поста: %s", e)
 
     def get_posts(self) -> list[Post]:
         """
