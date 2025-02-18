@@ -3,6 +3,7 @@ from datetime import datetime
 from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.orm import Session
 from sqlalchemy.dialects.postgresql import insert
+from typing import List
 
 from src.db.models import Post
 
@@ -19,7 +20,8 @@ class PostRepository:
         url: str,
         text: str,
         media: str,
-        date: datetime
+        date: datetime,
+        channel_id: str,
     ) -> None:
         """
         Создает пост.
@@ -29,7 +31,8 @@ class PostRepository:
             url=url,
             text=text,
             media=media,
-            time=date
+            time=date,
+            channel_id=channel_id,
         ).on_conflict_do_nothing(
             index_elements=['post_id']
         )
@@ -46,3 +49,9 @@ class PostRepository:
         Возвращает все посты.
         """
         return self.db.query(Post).all()
+
+    def get_posts_by_channel_id(self, channel_id: str) -> List[Post]:
+        """
+        Возвращает все посты для заданного channel_id.
+        """
+        return self.db.query(Post).filter(Post.channel_id == channel_id).all()

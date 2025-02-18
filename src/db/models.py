@@ -10,18 +10,10 @@ class Base(DeclarativeBase):
     pass
 
 
-class ChannelType(str, enum.Enum):
-    ul = "ультра левый"
-    l = "левый"
-    n = "нейтральный"
-    r = "правый"
-    ur = "ультра правый"
-
-
-
 class Post(Base):
     __tablename__ = "Posts"
     post_id: Mapped[int] = mapped_column(primary_key=True)
+    channel_id: Mapped[int] = mapped_column()
     url: Mapped[str] = mapped_column()
     text: Mapped[str] = mapped_column()
     media: Mapped[str] = mapped_column()

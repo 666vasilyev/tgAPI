@@ -5,7 +5,7 @@ import socks
 from datetime import datetime, timezone
 
 from telethon import TelegramClient
-from telethon.tl.types import Message
+from telethon.tl.types import Message, Channel
 
 from src.repositories.post import PostRepository
 from src.core.config import Config
@@ -76,7 +76,7 @@ class Worker:
 
             await self.process_message(message, channel)
 
-    async def process_message(self, message: Message, channel):
+    async def process_message(self, message: Message, channel: Channel):
         """
         Преобразует сообщение Telethon в параметры для создания поста и вызывает метод create_post из PostRepository.
         """
@@ -110,10 +110,42 @@ class Worker:
             post_id=message.id,
             url=url,
             text=text,
-            media=media,
-            date=post_date
+            media=media_file_path,
+            date=post_date,
+            channel_id=channel.id
         )
         logger.info(f"Обработан пост с id: {message.id}")
+
+
+    async def publish_saved_posts(self, source_channel_id: int, target_channel_id: str):
+        """
+        Публикует все сохраненные в базе данных посты в указанный канал.
+        
+        :param target_channel: Идентификатор или ссылка на канал, в который будут опубликованы посты.
+        """
+        # Предполагается, что PostRepository имеет метод get_posts, возвращающий список постов
+        posts = self.post_repo.get_posts_by_channel_id(
+            channel_id=source_channel_id
+        )
+
+        logger.info(f"Найдено {len(posts)} постов для публикации в канал {target_channel_id}")
+
+        await self.connect()  # Убедимся, что клиент подключен
+        try:
+            for post in posts:
+                try:
+                    if post.media:
+                        # Если есть медиа файл, публикуем его с текстом в качестве подписи
+                        await self.client.send_file(target_channel_id, post.media, caption=post.text)
+                        logger.info(f"Опубликован пост с медиа: {post.post_id}")
+                    else:
+                        # Публикуем только текст
+                        await self.client.send_message(target_channel_id, post.text)
+                        logger.info(f"Опубликован текстовый пост: {post.post_id}")
+                except Exception as e:
+                    logger.error(f"Ошибка при публикации поста {post.post_id}: {e}")
+        finally:
+            await self.disconnect()
 
     async def run(self, channel_link: str, limit: int):
         """
