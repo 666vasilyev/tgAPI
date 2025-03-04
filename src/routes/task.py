@@ -52,7 +52,7 @@ async def create_task(
 
 @router.post("/publish-posts", response_model=dict)
 async def publish_saved_posts_endpoint(
-    source_channel: int,
+    source_channel: str,
     target_channel: str,
     post_repo: PostRepository = Depends(get_post_repository),
     account_repo: AccountRepository = Depends(get_account_repository),
@@ -66,8 +66,8 @@ async def publish_saved_posts_endpoint(
     worker = Worker(post_repo=post_repo, account=account_repo.get_account(), comment_repo=comment_repo)
     try:
         await worker.publish_saved_posts(
-            source_channel_id=source_channel,
-            target_channel_id=target_channel
+            source_channel=source_channel,
+            target_channel=target_channel
             )
         return {"message": "Posts published successfully"}
     except Exception as e:

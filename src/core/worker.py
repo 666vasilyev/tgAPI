@@ -2,6 +2,7 @@ import logging
 import os
 import socks
 import json
+import glob
 
 from datetime import datetime, timezone
 
@@ -92,20 +93,34 @@ class Worker:
             url = ""
 
         text = message.message or ""
-        media = str(message.media) if message.media else ""
 
         post_date = message.date if message.date else datetime.now(timezone.utc)
-
 
         # Сохраняем медиа, если оно есть
         media_file_path = ""
         if message.media:
-            # Генерируем имя файла на основе channel.id и message.id
+            # Формируем шаблон для поиска старых файлов:
+            # Например: "1234567_42*" – все файлы, начинающиеся c "{channel.id}_{message.id}"
+            file_prefix_pattern = f"{channel.id}_{message.id}*"
+            pattern_path = os.path.join(self.media_dir, file_prefix_pattern)
+
+            # Удаляем все старые файлы, которые подходят под шаблон
+            old_files = glob.glob(pattern_path)
+            for old_file in old_files:
+                try:
+                    os.remove(old_file)
+                    logger.info(f"Старый файл удалён: {old_file}")
+                except Exception as ex:
+                    logger.error(f"Ошибка при удалении файла {old_file}: {ex}")
+
+            # Генерируем «основное» имя файла (без добавления .(1))
             file_name = f"{channel.id}_{message.id}"
             file_path = os.path.join(self.media_dir, file_name)
+
             try:
+                # Скачиваем заново
                 media_file_path = await self.client.download_media(message, file=file_path)
-                logger.info(f"Медиа сохранено: {media_file_path}")
+                logger.info(f"Медиа заново сохранено: {media_file_path}")
             except Exception as e:
                 logger.error(f"Ошибка при скачивании медиа для сообщения {message.id}: {e}")
                 media_file_path = ""
@@ -126,18 +141,18 @@ class Worker:
         logger.info(f"Обработан пост с id: {message.id}")
 
 
-    async def publish_saved_posts(self, source_channel_id: int, target_channel_id: str):
+    async def publish_saved_posts(self, source_channel: str, target_channel: str):
         """
         Публикует все сохраненные в базе данных посты в указанный канал.
         
         :param target_channel: Идентификатор или ссылка на канал, в который будут опубликованы посты.
         """
         # Предполагается, что PostRepository имеет метод get_posts, возвращающий список постов
-        posts = self.post_repo.get_posts_by_channel_id(
-            channel_id=source_channel_id
+        posts = self.post_repo.get_posts_by_channel_name(
+            channel_name=source_channel
         )
 
-        logger.info(f"Найдено {len(posts)} постов для публикации в канал {target_channel_id}")
+        logger.info(f"Найдено {len(posts)} постов для публикации в канал {target_channel}")
 
         await self.connect()  # Убедимся, что клиент подключен
         try:
@@ -145,11 +160,11 @@ class Worker:
                 try:
                     if post.media:
                         # Если есть медиа файл, публикуем его с текстом в качестве подписи
-                        await self.client.send_file(target_channel_id, post.media, caption=post.text)
+                        await self.client.send_file(target_channel, post.media, caption=post.text)
                         logger.info(f"Опубликован пост с медиа: {post.post_id}")
                     else:
                         # Публикуем только текст
-                        await self.client.send_message(target_channel_id, post.text)
+                        await self.client.send_message(target_channel, post.text)
                         logger.info(f"Опубликован текстовый пост: {post.post_id}")
                 except Exception as e:
                     logger.error(f"Ошибка при публикации поста {post.post_id}: {e}")

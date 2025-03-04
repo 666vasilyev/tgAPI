@@ -34,7 +34,8 @@ class PostRepository:
             media=media,
             time=date,
             channel_id=channel_id,
-            reactions=reactions
+            reactions=reactions,
+            channel_name=url.split('/')[3]
         ).on_conflict_do_nothing(
             index_elements=['post_id']
         )
@@ -57,3 +58,9 @@ class PostRepository:
         Возвращает все посты для заданного channel_id.
         """
         return self.db.query(Post).filter(Post.channel_id == channel_id).all()
+    
+    def get_posts_by_channel_name(self, channel_name: str) -> List[Post]:
+        """
+        Возвращает все посты для заданного channel_name.
+        """
+        return self.db.query(Post).filter(Post.channel_name == channel_name).all()

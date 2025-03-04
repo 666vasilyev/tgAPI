@@ -1,7 +1,8 @@
 import logging
 from datetime import datetime
-from sqlalchemy.exc import IntegrityError
+from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.orm import Session
+from sqlalchemy.dialects.postgresql import insert
 
 from src.db.models import Comment
 
@@ -23,18 +24,20 @@ class CommentRepository:
         """
         Создает комментарий.
         """
+        stmt = insert(Comment).values(
+            id=comment_id,
+            post_id=message_id,
+            text=text,
+            user_id=user_id,
+            time=date
+        ).on_conflict_do_nothing()
+
         try:
-            new_comment = Comment(
-                id=comment_id,
-                post_id=message_id,
-                text=text,
-                user_id=user_id,
-                time=date
-            )
-            self.db.add(new_comment)
+            self.db.execute(stmt)
             self.db.commit()
-        except IntegrityError:
-            logger.info('Comment already exists')
+        except SQLAlchemyError as e:
+            self.db.rollback()
+            logger.error("Ошибка при создании комментария: %s", e)
 
     def get_comments(self) -> list[Comment]:
         """
