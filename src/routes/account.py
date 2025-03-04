@@ -15,7 +15,7 @@ router = APIRouter()
 
 @router.post("/")
 async def create_account(
-    proxy_id: Optional[int],
+    proxy_id: Optional[int] = None,
     session_file: UploadFile = File(...),
     account_repo: AccountRepository = Depends(get_account_repository)
 ):
