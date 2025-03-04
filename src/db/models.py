@@ -14,6 +14,7 @@ class Post(Base):
     __tablename__ = "Posts"
     post_id: Mapped[int] = mapped_column(primary_key=True)
     channel_id: Mapped[int] = mapped_column(BigInteger)
+    channel_name: Mapped[str] = mapped_column(nullable=True)
     url: Mapped[str] = mapped_column()
     text: Mapped[str] = mapped_column()
     media: Mapped[str] = mapped_column()
