@@ -1,13 +1,17 @@
 import logging
 import os
 import socks
+import json
 
 from datetime import datetime, timezone
 
 from telethon import TelegramClient
-from telethon.tl.types import Message, Channel
+from telethon.tl.types import Message, Channel, ReactionCustomEmoji
+from telethon.tl.functions.channels import JoinChannelRequest
+
 
 from src.repositories.post import PostRepository
+from src.repositories.comment import CommentRepository
 from src.core.config import Config
 from src.db.models import Account
 
@@ -15,7 +19,7 @@ logger = logging.getLogger(__name__)
 
 
 class Worker:
-    def __init__(self, post_repo: PostRepository, account: Account):
+    def __init__(self, post_repo: PostRepository, account: Account, comment_repo: CommentRepository):
         """
         Инициализация Worker.
         
@@ -39,6 +43,7 @@ class Worker:
         
         self.post_repo = post_repo  # Инициализация репозитория постов
 
+        self.comment_repo = comment_repo
         self.api_id = self.config.API_ID
         self.api_hash = self.config.API_HASH
         self.media_dir = self.config.MEDIA_DIR
@@ -105,6 +110,8 @@ class Worker:
                 logger.error(f"Ошибка при скачивании медиа для сообщения {message.id}: {e}")
                 media_file_path = ""
 
+        data = message.reactions.results if message and message.reactions else []
+        reactions = [(item.reaction.emoticon, item.count) for item in data if not isinstance(item.reaction, ReactionCustomEmoji)]
         # Сохранение поста через репозиторий
         self.post_repo.create_post(
             post_id=message.id,
@@ -112,8 +119,10 @@ class Worker:
             text=text,
             media=media_file_path,
             date=post_date,
-            channel_id=channel.id
+            channel_id=channel.id,
+            reactions=json.dumps(reactions)
         )
+        await self.get_comments_info(message, channel, limit=100, reverse=False)
         logger.info(f"Обработан пост с id: {message.id}")
 
 
@@ -144,6 +153,27 @@ class Worker:
                         logger.info(f"Опубликован текстовый пост: {post.post_id}")
                 except Exception as e:
                     logger.error(f"Ошибка при публикации поста {post.post_id}: {e}")
+        finally:
+            await self.disconnect()
+
+    async def get_comments_info(self, message: Message, channel: Channel, limit: int, reverse: bool):
+        async for comment in self.client.iter_messages(
+                entity=channel,
+                reply_to=message.id,
+                limit=limit,
+                reverse=reverse,
+                wait_time=1):
+            try:
+                self.comment_repo.create_comment(
+                    comment.id, message.id, comment.text, comment.from_id.user_id, comment.date)
+            except AttributeError:
+                self.comment_repo.create_comment(
+                    comment.id, message.id, comment.text, f'channel_id:{comment.peer_id.channel_id}', comment.date)
+                
+    async def subscribe(self, channel_username: str):
+        await self.connect()
+        try:
+            await self.client(JoinChannelRequest(channel_username))
         finally:
             await self.disconnect()
 
