@@ -2,7 +2,7 @@ import datetime
 import enum
 from typing import Optional
 
-from sqlalchemy import ForeignKey
+from sqlalchemy import ForeignKey, BigInteger
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, relationship
 
 
@@ -13,11 +13,12 @@ class Base(DeclarativeBase):
 class Post(Base):
     __tablename__ = "Posts"
     post_id: Mapped[int] = mapped_column(primary_key=True)
-    channel_id: Mapped[int] = mapped_column()
+    channel_id: Mapped[int] = mapped_column(BigInteger)
     url: Mapped[str] = mapped_column()
     text: Mapped[str] = mapped_column()
     media: Mapped[str] = mapped_column()
     time: Mapped[datetime.datetime] = mapped_column()
+    reactions: Mapped[str] = mapped_column(nullable=True)
 
 
 class Account(Base):
@@ -66,3 +67,12 @@ class Proxy(Base):
             else f"{self.proxy_type}://{self.addr}:{self.port}"
         }
     
+class Comment(Base):
+    __tablename__ = "Comments"
+    id: Mapped[int] = mapped_column(primary_key=True)
+    post_id: Mapped[int] = mapped_column(ForeignKey("Posts.post_id"))
+    text: Mapped[str] = mapped_column()
+    user_id: Mapped[str] = mapped_column()
+    time: Mapped[datetime.datetime] = mapped_column()
+
+

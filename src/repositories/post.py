@@ -22,6 +22,7 @@ class PostRepository:
         media: str,
         date: datetime,
         channel_id: str,
+        reactions: str
     ) -> None:
         """
         Создает пост.
@@ -33,6 +34,7 @@ class PostRepository:
             media=media,
             time=date,
             channel_id=channel_id,
+            reactions=reactions
         ).on_conflict_do_nothing(
             index_elements=['post_id']
         )
