@@ -1,0 +1,35 @@
+# Python
+__pycache__/
+*.pyc
+
+# Dependency directories
+venv/
+env/
+media/
+accounts/
+
+postgres_data/
+
+# IDE directories
+.vscode/
+.idea/
+
+# Compiled files
+*.pyc
+*.pyo
+*.pyd
+*.pyz
+*.pywz
+*.pyi
+*.pyc/
+*.pyo/
+*.pyd/
+*.pyz/
+*.pywz/
+*.pyi/
+*.rdb
+*.db
+celerybeat-schedule.db
+*.session
+*.env
+*.json
